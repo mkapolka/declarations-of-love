@@ -1,3 +1,5 @@
+deque = require "declare/deque"
+
 function rxNode(model)
   local self = {}
   self.class = "node"
@@ -20,27 +22,18 @@ function rxPropertyNode(property)
   self.property = property
 
   function self.split(input)
-    -- Creates the downstream split property node (property')
-    -- This one keeps only input, (property') gets the rest
-    local output = rxPropertyNode(self.property)
-    output.name = self.name .. "'"
-    output.inputs = self.inputs
-    table.removeValue(output.inputs, input)
-    output.outputs = self.outputs
+    -- Creates the downstream split property node property'
+    -- Given an upstream input node that will instead write to property'
+    local split = rxPropertyNode(self.property)
+    split.name = self.name .. "'"
+    split.inputs = {input}
+    split.outputs = {}
 
-    self.inputs = {input}
-    self.outputs = {output}
+    table.removeValue(self.inputs, input)
 
-    -- Update upstream nodes' outputs
-    for _, node in pairs(output.inputs) do
-      table.replace(node.outputs, self, output)
-    end
+    table.replace(input.outputs, self, split)
 
-    -- Update the downstream nodes' inputs
-    for _, node in pairs(output.outputs) do
-      table.replace(node.inputs, self, output)
-    end
-    return output
+    return split
   end
 
   return self
@@ -71,14 +64,15 @@ end
 
 function can_reach(node, target)
   local visited = {} -- {node: true} set
-  local nodes = {node} -- list of nodes
-  while #nodes > 0 do
-    next = table.remove(nodes, 1)
+  local nodes = deque.new() -- list of nodes
+  nodes:push_left(node)
+  while nodes:length() > 0 do
+    local next = nodes:pop_left()
     visited[next] = true
     for _, value in pairs(next.outputs) do
       if value == target then return true end
       if not visited[value] then
-        table.insert(nodes, value)
+        nodes:push_right(value)
       end
     end
   end
@@ -93,16 +87,43 @@ function split_property_node(propertyNode)
   -- Find the incoming edges that are also downstream
   print("splitting " .. propertyNode.name .. " ... inputs = " .. repl(table.map(propertyNode.inputs, function(v) return v.name end)))
   looped_inputs = table.filter(propertyNode.inputs, function(input, _, _)
+    print("Can reach " .. input.name .. "? " .. tostring(can_reach(propertyNode, input)))
     return can_reach(propertyNode, input) 
   end)
 
+  non_looped_outputs = table.filter(propertyNode.outputs, function(output, _, _)
+    print("Can reach " .. output.name .. "? " .. tostring(can_reach(output, propertyNode)))
+    return not can_reach(output, propertyNode) 
+  end)
+
   for _, input in pairs(looped_inputs) do
+    print("splitting " .. propertyNode.name .. " with " .. input.name)
     local split = propertyNode.split(input)
     table.insert(outputs, split)
-    propertyNode = split
-    print("splitted into " .. propertyNode.name .. " ... inputs = " .. repl(table.map(propertyNode.inputs, function(v) return v.name end)) .. " outputs: " .. repl(table.map(propertyNode.outputs, function(v) return v.name end)))
+    print("splitted into " .. split.name .. " ... inputs = " .. repl(table.map(split.inputs, function(v) return v.name end)) .. " outputs: " .. repl(table.map(split.outputs, function(v) return v.name end)))
   end
 
+  -- Set up the property^n node, only if we've actually split anything
+  if #non_looped_outputs > 0 and #outputs > 0 then
+    print("asdfasdf")
+    print(propertyNode.name)
+    print(repl(non_looped_outputs))
+    local last = rxPropertyNode(propertyNode.property)
+    last.name = propertyNode.name .. ".last"
+    for _, node in pairs(outputs) do
+      table.insert(last.inputs, node)
+      table.insert(node.outputs, last)
+    end
+
+    for _, node in pairs(non_looped_outputs) do
+      table.insert(last.outputs, node)
+      table.replace(node.inputs, propertyNode, last)
+      print("non looped output " .. node.name .. " ... inputs = " .. repl(table.map(node.inputs, function(v) return v.name end)))
+    end
+
+
+    table.insert(outputs, last)
+  end
 
   return outputs
 end
@@ -202,36 +223,5 @@ function topo_sort(nodes)
     assert(table.any(output, function(v, _, _) return v == node end), "node '" .. tostring(node.name) .. "' is unreachable :(")
   end
 
-  return output
-end
-
-function graph_to_model(graph)
-  local output = {}
-  for _, node in pairs(graph) do
-    -- Ignore property, property', and class nodes
-    if node.class == "callback" then
-      table.insert(output, node.callback)
-    end
-
-    if node.class == "event" then
-      -- If the event doesn't have any listeners, get rid of it
-      if #node.outputs > 0 then
-        table.insert(output, node.event)
-      end
-    end
-  end
-  return output
-end
-
-
-function create_model(things)
-  local output = things
-  print("things: " .. repl(table.map(output, function(v) return v.name end)))
-  output = create_graph(output)
-  print("graph: " .. repl(table.map(output, function(v) return v.name end)))
-  output = topo_sort(output)
-  print("topo: " .. repl(table.map(output, function(v) return v.name end)))
-  output = graph_to_model(output)
-  print("models: " .. repl(table.map(output, function(v) return v.name end)))
   return output
 end

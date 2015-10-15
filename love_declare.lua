@@ -4,7 +4,7 @@ deque = require "declare/deque"
 
 rxnodes = {}
 
-rxmodel = {}
+local rxmodelstore = {}
 
 function mixin_signals(self)
   self.listeners = {}
@@ -47,7 +47,7 @@ function rxnode() -- empty node for setting up topology
   local out = {}
   mixin_signals(out)
 
-  table.insert(rxmodel, out)
+  table.insert(rxmodelstore, out)
   return out
 end
 
@@ -56,7 +56,7 @@ function rxproperty(value, name, skipCallbacks)
   mixin_signals(self)
   self.type = "property"
   self.class_type = "singleton" -- options: "singleton", "each", "all"
-  self.name = name or "property"
+  self.name = "p("..name..")" or "p(???)"
 
   self.container = {value=value}
 
@@ -81,7 +81,7 @@ function rxproperty(value, name, skipCallbacks)
     self.container.value = v
   end
 
-  table.insert(rxmodel, self)
+  table.insert(rxmodelstore, self)
   return self
 end
 
@@ -94,7 +94,7 @@ function rxevent()
     -- pass
   end
 
-  table.insert(rxmodel, self)
+  table.insert(rxmodelstore, self)
   return self
 end
 
@@ -136,7 +136,7 @@ function rxcallback(name)
      self.action(unpack(self.getInputs()))
   end
 
-  table.insert(rxmodel, self)
+  table.insert(rxmodelstore, self)
   return self
 end
 
@@ -170,7 +170,7 @@ function rxclass(fields, name)
     return output
   end
 
-  table.insert(rxmodel, self)
+  table.insert(rxmodelstore, self)
   return self
 end
 

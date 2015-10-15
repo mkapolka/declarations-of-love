@@ -50,6 +50,16 @@ function table.removeValue(table, value)
   end
 end
 
+function table.chain(...)
+  local output = {}
+  for table in ... do
+    for _, v in pairs(table) do
+      table.insert(output, v)
+    end
+  end
+  return output
+end
+
 function table.clone(table)
   local output = {}
   for k, v in pairs(table) do
