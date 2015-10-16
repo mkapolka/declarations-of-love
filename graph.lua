@@ -87,12 +87,12 @@ function split_property_node(propertyNode)
   -- Find the incoming edges that are also downstream
   print("splitting " .. propertyNode.name .. " ... inputs = " .. repl(table.map(propertyNode.inputs, function(v) return v.name end)))
   looped_inputs = table.filter(propertyNode.inputs, function(input, _, _)
-    print("Can reach " .. input.name .. "? " .. tostring(can_reach(propertyNode, input)))
+    -- print("Can reach " .. input.name .. "? " .. tostring(can_reach(propertyNode, input)))
     return can_reach(propertyNode, input) 
   end)
 
   non_looped_outputs = table.filter(propertyNode.outputs, function(output, _, _)
-    print("Can reach " .. output.name .. "? " .. tostring(can_reach(output, propertyNode)))
+    -- print("Can reach " .. output.name .. "? " .. tostring(can_reach(output, propertyNode)))
     return not can_reach(output, propertyNode) 
   end)
 
@@ -100,14 +100,11 @@ function split_property_node(propertyNode)
     print("splitting " .. propertyNode.name .. " with " .. input.name)
     local split = propertyNode.split(input)
     table.insert(outputs, split)
-    print("splitted into " .. split.name .. " ... inputs = " .. repl(table.map(split.inputs, function(v) return v.name end)) .. " outputs: " .. repl(table.map(split.outputs, function(v) return v.name end)))
+    print("split into " .. split.name .. " ... inputs = " .. repl(table.map(split.inputs, function(v) return v.name end)) .. " outputs: " .. repl(table.map(split.outputs, function(v) return v.name end)))
   end
 
   -- Set up the property^n node, only if we've actually split anything
   if #non_looped_outputs > 0 and #outputs > 0 then
-    print("asdfasdf")
-    print(propertyNode.name)
-    print(repl(non_looped_outputs))
     local last = rxPropertyNode(propertyNode.property)
     last.name = propertyNode.name .. ".last"
     for _, node in pairs(outputs) do
@@ -136,12 +133,12 @@ function create_graph(models)
 
   -- Add property callbacks to events
   for _, property in pairs(properties) do
-    local eventNode = rxEventNode(property.onChanged)
+    local eventNode = rxEventNode(property.on_changed)
     local propertyNode = propertyNodes[property]
     table.insert(eventNode.inputs, propertyNode)
     table.insert(propertyNode.outputs, eventNode)
-    table.insert(events, property.onChanged) 
-    eventNodes[property.onChanged] = eventNode
+    table.insert(events, property.on_changed) 
+    eventNodes[property.on_changed] = eventNode
   end
 
   for _, someNodes in pairs({propertyNodes, callbackNodes, eventNodes}) do

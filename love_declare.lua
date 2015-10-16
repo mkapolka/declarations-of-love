@@ -57,14 +57,15 @@ function rxproperty(value, name, skipCallbacks)
   self.type = "property"
   self.class_type = "singleton" -- options: "singleton", "each", "all"
   self.name = "p("..name..")" or "p(???)"
+  self.default_value = value
 
   self.container = {value=value}
 
   if not skipCallbacks then
-    self.onChanged = rxevent()
-    self.onChanged.name = self.name .. '.onChanged'
-    table.insert(self.onChanged.inputs, self)
-    table.insert(self.listeners, self.onChanged)
+    self.on_changed = rxevent()
+    self.on_changed.name = self.name .. '.onChanged'
+    table.insert(self.on_changed.inputs, self)
+    table.insert(self.listeners, self.on_changed)
   end
 
   self.triggered = true

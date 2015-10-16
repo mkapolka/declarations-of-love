@@ -1,27 +1,37 @@
-function rxmodel(nodes)
+function rxmodel(runtimes)
   local self = {}
-  self.models = nodes
-  self.visitable = nodes
+  self.runtimes = runtimes
+  self.visitable = runtimes
+
+  self.decls = {}
+  for _, runtime in pairs(runtimes) do
+    self.decls[runtime.decl] = runtime
+  end
 
   function self.reset()
-    for _, node in pairs(self.models) do
-      node.reset()
+    for _, runtime in pairs(self.runtimes) do
+      runtime.reset()
     end
   end
 
   function self.iterate()
-    for _, node in pairs(self.models) do
-      node.visit()
+    for _, runtime in pairs(self.runtimes) do
+      runtime.visit()
     end
   end
+
+  function self.from_declaration(decl)
+    return self.decls[decl]
+  end
+
   return self
 end
 
-function rx_runtime_node(node)
-  self = {}
-  self.node = node
-  self.model = node.model
-  self.name = "r(" .. self.model.name .. ")"
+function rx_runtime_node(decl)
+  local self = {}
+  self.decl = decl
+  self.type = decl.type
+  self.name = "r(" .. self.decl.name .. ")"
 
   function self.visit()
     --
@@ -35,9 +45,9 @@ function rx_runtime_node(node)
 end
 
 function rx_runtime_property(property)
-  self = rx_runtime_node(property)
+  local self = rx_runtime_node(property)
   self.value = property.default_value
-  self.on_changed = property.on_changed
+  self.on_changed = nil -- hook up when creating model
 
   function self.get()
     return self.value
@@ -54,7 +64,7 @@ function rx_runtime_property(property)
 end
 
 function rx_runtime_event(event)
-  self = rx_runtime_node(event)
+  local self = rx_runtime_node(event)
   self.triggered = false
 
   function self.reset()
@@ -69,7 +79,7 @@ function rx_runtime_event(event)
 end
 
 function rx_runtime_callback(callback)
-  self = rx_runtime_node(callback)
+  local self = rx_runtime_node(callback)
   self.action = callback.action
   self.requires = {}
   self.alters = {}
@@ -78,6 +88,7 @@ function rx_runtime_callback(callback)
     local output = {}
     -- Get requires
     local requires = table.filter(self.requires, function(v) return v.type == "property" end)
+    requires = table.map(requires, function(v) return v.get() end)
     local alters = self.alters
 
     return table.chain(requires, alters)
@@ -104,7 +115,7 @@ function to_runtime_model(node)
   }
   for name, class in pairs(n_classes) do
     if node.class == name then
-      return class(node)
+      return class(node.model)
     end
   end
   --error "Can't convert a node into a runtime object!"
@@ -116,17 +127,24 @@ function graph_to_model(graph)
 
   -- Map from decls -> runtimes
   for _, runtime in pairs(runtimes) do
-    decls[runtime.model] = runtime
+    decls[runtime.decl] = runtime
+  end
+
+
+  -- Hook up the properties and their on_changed callbacks
+  for _, property_runtime in pairs(table.filter(runtimes, function(v) return v.type == "property" end)) do 
+    on_changed = decls[property_runtime.decl.on_changed]
+    property_runtime.on_changed = on_changed
   end
 
   -- Hook up the callbacks to their runtime properties
   for _, runtime in pairs(runtimes) do
     if runtime.type == "callback" then
-      for _, decl in pairs(runtime.model.inputs) do
+      for _, decl in pairs(runtime.decl.inputs) do
         table.insert(runtime.requires, decls[decl])
       end
 
-      for _, decl in pairs(runtime.model.listeners) do
+      for _, decl in pairs(runtime.decl.listeners) do
         table.insert(runtime.alters, decls[decl])
       end
     end

@@ -10,6 +10,6 @@ function create_model(things)
   output = topo_sort(output)
   print("topo: " .. repl(table.map(output, function(v) return v.name end)))
   output = graph_to_model(output)
-  print("models: " .. repl(table.map(output.models, function(v) return v.name end)))
+  print("models: " .. repl(table.map(output.runtimes, function(v) return v.name end)))
   return output
 end

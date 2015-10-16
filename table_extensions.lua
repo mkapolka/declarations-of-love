@@ -52,8 +52,8 @@ end
 
 function table.chain(...)
   local output = {}
-  for table in ... do
-    for _, v in pairs(table) do
+  for _, t in pairs({...}) do
+    for _, v in pairs(t) do
       table.insert(output, v)
     end
   end
