@@ -86,14 +86,11 @@ function rxproperty(value, name, skipCallbacks)
   return self
 end
 
-function rxevent()
+function rxevent(name)
   local self = {}
   mixin_signals(self)
   self.type = "event"
-
-  function self.visit()
-    -- pass
-  end
+  self.name = name
 
   table.insert(rxmodelstore, self)
   return self

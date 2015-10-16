@@ -1,4 +1,4 @@
-require("declare/love_declare")
+require("declare/declare")
 require("declare/graph")
 require("declare/runtime")
 
